@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Combinações Quest</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #334155;
+      --primary: #6366f1;
+      --primary-light: #818cf8;
+      --success: #22c55e;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: #334155;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .screen { display: none; width: 100%; max-width: 760px; }
+    .screen.active { display: block; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%     { transform: translateY(-10px); }
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%     { opacity: 0.4; }
+    }
+    @keyframes pop {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+
+    .animate-in { animation: slideIn 0.35s ease both; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    .card h2 { color: var(--primary-light); margin-bottom: 14px; font-size: 1.2rem; }
+
+    /* ── BUTTON ── */
+    .btn {
+      padding: 13px 28px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .btn:active { transform: scale(.96); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: #fff;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,.4); }
+    .btn-secondary { background: var(--surface2); color: var(--text); }
+    .btn-secondary:hover { background: #475569; }
+
+    /* ════════════════════════════════════
+       START SCREEN
+    ════════════════════════════════════ */
+    #screen-start { text-align: center; }
+
+    .logo { font-size: 4.5rem; animation: float 3s ease-in-out infinite; display: block; margin-bottom: 14px; }
+
+    h1.title {
+      font-size: 2.4rem;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+    .subtitle { color: var(--muted); margin-bottom: 36px; font-size: 1.05rem; }
+
+    .stats-row {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-bottom: 36px;
+    }
+    .stat-item .num { font-size: 2rem; font-weight: 800; color: var(--primary-light); }
+    .stat-item .lbl { font-size: .8rem; color: var(--muted); }
+
+    .btn-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    /* ════════════════════════════════════
+       INSTRUCTIONS SCREEN
+    ════════════════════════════════════ */
+    .formula-box {
+      background: var(--surface2);
+      border-left: 4px solid var(--primary);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin: 12px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 1.05rem;
+      text-align: center;
+    }
+    .example { color: var(--muted); font-size: .88rem; margin-top: 8px; }
+
+    /* ════════════════════════════════════
+       GAME SCREEN
+    ════════════════════════════════════ */
+    .game-hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .score-box .score-val { font-size: 1.4rem; font-weight: 800; color: var(--primary-light); }
+    .score-box .q-info    { font-size: .82rem; color: var(--muted); }
+
+    .timer-box {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--warning);
+      width: 56px;
+      text-align: center;
+      transition: color .3s;
+    }
+    .timer-box.urgent { color: var(--error); animation: pulse .5s infinite; }
+
+    .streak-chip {
+      background: rgba(245,158,11,.18);
+      color: var(--warning);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: .82rem;
+      font-weight: 700;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--primary-light));
+      border-radius: 4px;
+      transition: width .5s ease;
+    }
+
+    .type-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: .78rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .badge-s  { background: rgba(99,102,241,.2); color: var(--primary-light); }
+    .badge-cr { background: rgba(245,158,11,.2); color: var(--warning); }
+    .badge-c  { background: rgba(34,197,94,.2);  color: var(--success); }
+
+    .q-text {
+      font-size: 1.15rem;
+      line-height: 1.65;
+      margin-bottom: 18px;
+    }
+
+    .formula-ref {
+      background: var(--surface2);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-family: 'Courier New', monospace;
+      font-size: .88rem;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .opt-btn {
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 12px;
+      font-size: .98rem;
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color .15s, background .15s, transform .1s;
+      text-align: center;
+      line-height: 1.4;
+    }
+    .opt-btn:hover:not(:disabled) {
+      border-color: var(--primary);
+      background: rgba(99,102,241,.12);
+      transform: translateY(-2px);
+    }
+    .opt-btn:disabled { cursor: not-allowed; }
+    .opt-btn.correct  { border-color: var(--success); background: rgba(34,197,94,.18);  animation: pop .3s ease; }
+    .opt-btn.wrong    { border-color: var(--error);   background: rgba(239,68,68,.18); }
+
+    .feedback {
+      margin-top: 16px;
+      padding: 14px 18px;
+      border-radius: 12px;
+      display: none;
+      line-height: 1.55;
+    }
+    .feedback.show { display: block; }
+    .feedback.fb-ok  { background: rgba(34,197,94,.12);  border: 1px solid var(--success); }
+    .feedback.fb-err { background: rgba(239,68,68,.12);  border: 1px solid var(--error); }
+    .feedback .fb-title { font-weight: 700; margin-bottom: 6px; }
+    .feedback .fb-exp   { font-size: .9rem; color: var(--muted); }
+
+    .next-wrap { text-align: center; margin-top: 14px; }
+
+    /* ════════════════════════════════════
+       RESULT SCREEN
+    ════════════════════════════════════ */
+    .result-center { text-align: center; padding: 24px 0 16px; }
+    .result-icon   { font-size: 5rem; margin-bottom: 10px; }
+    h2.result-title { font-size: 1.9rem; margin-bottom: 6px; }
+    .final-pts { font-size: 3rem; font-weight: 800; color: var(--primary-light); margin-top: 14px; }
+    .final-pts span { font-size: 1.1rem; font-weight: 400; color: var(--muted); margin-left: 6px; }
+
+    .score-bar-wrap {
+      background: var(--surface2);
+      border-radius: 10px;
+      height: 16px;
+      overflow: hidden;
+      margin: 18px 0 8px;
+    }
+    .score-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--success));
+      border-radius: 10px;
+      transition: width 1s ease;
+    }
+
+    .result-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 20px 0;
+    }
+    .rstat { background: var(--surface2); border-radius: 12px; padding: 14px; text-align: center; }
+    .rstat .rnum { font-size: 1.9rem; font-weight: 800; }
+    .rstat .rlbl { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+
+    .review-section { margin-top: 4px; }
+    .review-section h2 { font-size: 1rem; margin-bottom: 12px; color: var(--muted); }
+    .review-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: .88rem;
+    }
+    .review-item:last-child { border-bottom: none; }
+    .ri-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 2px; }
+    .ri-q { color: var(--muted); }
+
+    /* ── CANVAS ── */
+    #confetti { position: fixed; top: 0; left: 0; pointer-events: none; z-index: 9999; }
+
+    @media (max-width: 520px) {
+      h1.title        { font-size: 1.7rem; }
+      .options-grid   { grid-template-columns: 1fr; }
+      .result-stats   { grid-template-columns: 1fr; }
+      .stats-row      { gap: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="screen-start" class="screen active">
+  <span class="logo">🧮</span>
+  <h1 class="title">Combinações Quest</h1>
+  <p class="subtitle">Aprenda Combinações Simples e com Repetição de forma divertida!</p>
+
+  <div class="stats-row">
+    <div class="stat-item"><div class="num">15</div><div class="lbl">Questões no banco</div></div>
+    <div class="stat-item"><div class="num">8</div><div class="lbl">Por partida</div></div>
+    <div class="stat-item"><div class="num">30s</div><div class="lbl">Por questão</div></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="showInstructions()">📚 Instruções</button>
+    <button class="btn btn-primary"   onclick="startGame()">🚀 Jogar!</button>
+  </div>
+</div>
+
+<div id="screen-instructions" class="screen">
+  <div class="card animate-in">
+    <h2>🎮 Como Jogar</h2>
+    <p>Responda <strong>8 questões</strong> de múltipla escolha. Cada uma tem <strong>30 segundos</strong>. Respostas rápidas dão bônus de pontos. As fórmulas ficam visíveis durante o jogo!</p>
+  </div>
+
+  <div class="card animate-in">
+    <h2>🔢 Combinação Simples — C(n, r)</h2>
+    <p>Selecionar <strong>r</strong> elementos de <strong>n</strong>, <strong>sem repetição</strong>, onde a <strong>ordem NÃO importa</strong>.</p>
+    <div class="formula-box">C(n, r) = n! / (r! × (n − r)!)</div>
+    <p class="example">Ex: Escolher 2 livros de 5 → C(5,2) = (5×4)/(2×1) = <strong>10</strong></p>
+  </div>
+
+  <div class="card animate-in">
+    <h2>🔄 Combinação com Repetição — CR(n, r)</h2>
+    <p>Selecionar <strong>r</strong> elementos de <strong>n</strong>, com <strong>repetição permitida</strong>, onde a <strong>ordem NÃO importa</strong>.</p>
+    <div class="formula-box">CR(n, r) = C(n+r−1, r) = (n+r−1)! / (r! × (n−1)!)</div>
+    <p class="example">Ex: Escolher 3 bolas de sorvete de 5 sabores (pode repetir) → CR(5,3) = C(7,3) = <strong>35</strong></p>
+  </div>
+
+  <div class="card animate-in">
+    <h2>💡 Dica Rápida</h2>
+    <p><strong>A ordem importa?</strong> Não → Combinação &nbsp;|&nbsp; <strong>Pode repetir?</strong> Sim → CR. Ambas as perguntas guiam sua escolha de fórmula.</p>
+  </div>
+
+  <div class="btn-row" style="margin-top:4px">
+    <button class="btn btn-secondary" onclick="showScreen('screen-start')">← Voltar</button>
+    <button class="btn btn-primary"   onclick="startGame()">Entendi! Jogar 🚀</button>
+  </div>
+</div>
+
+<div id="screen-game" class="screen">
+  <div class="game-hdr">
+    <div class="score-box">
+      <div class="score-val">⭐ <span id="score">0</span></div>
+      <div class="q-info">Questão <span id="qnum">1</span> de <span id="qtot">8</span></div>
+    </div>
+    <div class="timer-box" id="timer">30</div>
+    <div id="streak-wrap" style="display:none">
+      <div class="streak-chip">🔥 <span id="streak-val">0</span> seguidas!</div>
+    </div>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="prog" style="width:0%"></div></div>
+
+  <div class="card animate-in" id="q-card">
+    <div class="type-badge badge-s" id="q-badge">Combinação Simples</div>
+    <p class="q-text" id="q-text">…</p>
+    <div class="formula-ref" id="q-ref">📐 C(n,r) = n! / (r! × (n−r)!)</div>
+
+    <div class="options-grid" id="opts"></div>
+
+    <div class="feedback" id="feedback">
+      <div class="fb-title" id="fb-title"></div>
+      <div class="fb-exp"   id="fb-exp"></div>
+    </div>
+  </div>
+
+  <div class="next-wrap">
+    <button class="btn btn-primary" id="next-btn" onclick="nextQuestion()" style="display:none">
+      Próxima →
+    </button>
+  </div>
+</div>
+
+<div id="screen-result" class="screen">
+  <div class="card animate-in">
+    <div class="result-center">
+      <div class="result-icon" id="r-icon">🏆</div>
+      <h2 class="result-title" id="r-title">Parabéns!</h2>
+      <p class="subtitle" id="r-sub">Desempenho incrível!</p>
+      <div class="final-pts">⭐ <span id="r-pts">0</span><span>pontos</span></div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-fill" id="r-bar" style="width:0%"></div>
+      </div>
+      <p id="r-pct" style="color:var(--muted); font-size:.9rem;"></p>
+    </div>
+
+    <div class="result-stats">
+      <div class="rstat">
+        <div class="rnum" id="r-ok"  style="color:var(--success)">0</div>
+        <div class="rlbl">✅ Acertos</div>
+      </div>
+      <div class="rstat">
+        <div class="rnum" id="r-err" style="color:var(--error)">0</div>
+        <div class="rlbl">❌ Erros</div>
+      </div>
+      <div class="rstat">
+        <div class="rnum" id="r-str" style="color:var(--warning)">0</div>
+        <div class="rlbl">🔥 Maior sequência</div>
+      </div>
+    </div>
+
+    <div class="review-section card" style="background:var(--bg); border-color:var(--border)">
+      <h2>📋 Revisão das questões</h2>
+      <div id="review-list"></div>
+    </div>
+
+    <div class="btn-row" style="margin-top:20px">
+      <button class="btn btn-secondary" onclick="showInstructions()">📚 Revisar Teoria</button>
+      <button class="btn btn-primary"   onclick="startGame()">🔄 Jogar Novamente</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="confetti"></canvas>
+
+<script>
+
+const BANK = [
+  {
+    type:'s',
+    text:'De quantas maneiras podemos escolher 3 pessoas de um grupo de 8 para formar um comitê?',
+    opts:[56, 336, 70, 28],
+    ans:56,
+    exp:'C(8,3) = (8×7×6)/(3×2×1) = 56. O comitê {A,B,C} é o mesmo que {C,A,B}, então a ordem não importa.'
+  },
+  {
+    type:'s',
+    text:'De quantas formas podemos selecionar 2 livros de uma coleção de 7 livros?',
+    opts:[21, 42, 14, 35],
+    ans:21,
+    exp:'C(7,2) = (7×6)/(2×1) = 21. A escolha do livro A e do livro B é a mesma que B e A.'
+  },
+  {
+    type:'s',
+    text:'Uma pizzaria tem 8 sabores disponíveis. De quantas formas você pode montar uma pizza com 2 sabores diferentes?',
+    opts:[28, 56, 16, 64],
+    ans:28,
+    exp:'C(8,2) = (8×7)/2 = 28. A pizza com sabores A e B é igual à com B e A.'
+  },
+  {
+    type:'s',
+    text:'Quantas comissões de 4 membros podem ser formadas com 9 candidatos?',
+    opts:[126, 84, 3024, 70],
+    ans:126,
+    exp:'C(9,4) = (9×8×7×6)/(4×3×2×1) = 3024/24 = 126.'
+  },
+  {
+    type:'s',
+    text:'Num clube com 10 sócios, de quantas formas distintas podemos escolher 3 representantes para uma reunião?',
+    opts:[120, 720, 45, 30],
+    ans:120,
+    exp:'C(10,3) = (10×9×8)/(3×2×1) = 720/6 = 120. As posições são iguais, então a ordem não importa.'
+  },
+  {
+    type:'s',
+    text:'De quantas formas podemos selecionar 4 alunos de uma turma de 15 para representar a escola?',
+    opts:[1365, 455, 32760, 1001],
+    ans:1365,
+    exp:'C(15,4) = (15×14×13×12)/(4×3×2×1) = 32760/24 = 1365.'
+  },
+  {
+    type:'s',
+    text:'Uma equipe de vôlei precisa escolher 6 titulares de um elenco de 12 atletas. Quantas formações distintas são possíveis?',
+    opts:[924, 792, 462, 665280],
+    ans:924,
+    exp:'C(12,6) = 12!/(6!×6!) = 665280/720 = 924.'
+  },
+  {
+    type:'s',
+    text:'De quantas formas podemos distribuir 3 prêmios IGUAIS entre 6 finalistas (cada finalista recebe no máximo 1 prêmio)?',
+    opts:[20, 120, 15, 18],
+    ans:20,
+    exp:'C(6,3) = (6×5×4)/(3×2×1) = 120/6 = 20. Os prêmios são iguais → a ordem não importa.'
+  },
+  {
+    type:'cr',
+    text:'Uma sorveteria tem 5 sabores. De quantas formas posso escolher 3 bolas de sorvete, podendo repetir sabores?',
+    opts:[35, 10, 60, 15],
+    ans:35,
+    exp:'CR(5,3) = C(5+3−1, 3) = C(7,3) = (7×6×5)/(3×2×1) = 35. Com repetição: use n+r−1 no lugar de n.'
+  },
+  {
+    type:'cr',
+    text:'Numa farmácia há 4 tipos de vitaminas. De quantas formas posso comprar 2 vitaminas, podendo levar 2 do mesmo tipo?',
+    opts:[10, 6, 12, 16],
+    ans:10,
+    exp:'CR(4,2) = C(4+2−1, 2) = C(5,2) = (5×4)/2 = 10.'
+  },
+  {
+    type:'cr',
+    text:'Uma lanchonete vende 6 tipos de suco. De quantas formas posso pedir 2 sucos, podendo pedir 2 do mesmo tipo?',
+    opts:[21, 15, 12, 30],
+    ans:21,
+    exp:'CR(6,2) = C(6+2−1, 2) = C(7,2) = (7×6)/2 = 21.'
+  },
+  {
+    type:'cr',
+    text:'Num cardápio com 4 tipos de fruta, de quantas formas posso montar uma salada de 3 frutas (repetição permitida)?',
+    opts:[20, 4, 12, 64],
+    ans:20,
+    exp:'CR(4,3) = C(4+3−1, 3) = C(6,3) = (6×5×4)/(3×2×1) = 20.'
+  },
+  {
+    type:'c',
+    text:'Em combinação simples, a ORDEM dos elementos escolhidos importa para diferenciar os grupos?',
+    opts:['Não, a ordem NÃO importa','Sim, a ordem IMPORTA','Depende da quantidade','Só quando n > 10'],
+    ans:'Não, a ordem NÃO importa',
+    exp:'Essa é a essência das combinações: {A,B} = {B,A}. Se a ordem importasse, seria Arranjo (Permutação Parcial).'
+  },
+  {
+    type:'c',
+    text:'Qual é a fórmula correta para Combinação COM repetição CR(n, r)?',
+    opts:['C(n+r−1, r)','C(n, r)','C(n+r, r)','n! / r!'],
+    ans:'C(n+r−1, r)',
+    exp:'CR(n,r) = C(n+r−1, r). Expandimos n para n+r−1 pois a repetição "cria" mais possibilidades de agrupamento.'
+  },
+  {
+    type:'c',
+    text:'Qual é o valor de C(n, 0) para qualquer n ≥ 0?',
+    opts:['1','n','0','n!'],
+    ans:'1',
+    exp:'C(n,0) = n!/(0!×n!) = 1. Há exatamente 1 maneira de escolher 0 elementos: não escolher nenhum.'
+  }
+];
+
+const PER_GAME = 8;
+const TIME    = 30;
+
+let G = {};  
+
+function shuffle(a) {
+  const r = [...a];
+  for (let i = r.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [r[i], r[j]] = [r[j], r[i]];
+  }
+  return r;
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showInstructions() { showScreen('screen-instructions'); }
+
+let actx = null;
+function getCtx() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  return actx;
+}
+function beep(freqs, dur = .4, type = 'sine') {
+  try {
+    const ctx = getCtx();
+    freqs.forEach(([f, t]) => {
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = f;
+      osc.connect(g);
+      g.connect(ctx.destination);
+      g.gain.setValueAtTime(.25, ctx.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + t + dur);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + dur);
+    });
+  } catch(_) {}
+}
+function playOk()       { beep([[440,.0],[660,.12],[880,.24]], .35); }
+function playWrong()    { beep([[280,.0],[200,.2]], .4, 'sawtooth'); }
+function playFinish()   { beep([[523,.0],[659,.18],[784,.36],[1047,.54]], .3); }
+
+function startGame() {
+  G = {
+    qs: shuffle(BANK).slice(0, PER_GAME),
+    idx: 0,
+    score: 0,
+    correct: 0,
+    wrong: 0,
+    streak: 0,
+    maxStreak: 0,
+    ticker: null,
+    timeLeft: TIME,
+    done: false,
+    log: []   
+  };
+  showScreen('screen-game');
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q    = G.qs[G.idx];
+  G.done     = false;
+  G.timeLeft = TIME;
+
+  document.getElementById('score').textContent = G.score;
+  document.getElementById('qnum').textContent  = G.idx + 1;
+  document.getElementById('qtot').textContent  = PER_GAME;
+
+  document.getElementById('prog').style.width = (G.idx / PER_GAME * 100) + '%';
+
+  const sw = document.getElementById('streak-wrap');
+  if (G.streak >= 2) {
+    sw.style.display = 'block';
+    document.getElementById('streak-val').textContent = G.streak;
+  } else {
+    sw.style.display = 'none';
+  }
+
+  const badge = document.getElementById('q-badge');
+  const labels = { s:'🔢 Combinação Simples', cr:'🔄 Combinação com Repetição', c:'💡 Conceitual' };
+  const cls    = { s:'badge-s', cr:'badge-cr', c:'badge-c' };
+  badge.textContent = labels[q.type];
+  badge.className   = 'type-badge ' + cls[q.type];
+
+  document.getElementById('q-text').textContent = q.text;
+
+  const ref = document.getElementById('q-ref');
+  if (q.type === 's') {
+    ref.textContent = '📐 C(n,r) = n! / (r! × (n−r)!)';
+    ref.style.display = 'block';
+  } else if (q.type === 'cr') {
+    ref.textContent = '📐 CR(n,r) = C(n+r−1, r) = (n+r−1)! / (r! × (n−1)!)';
+    ref.style.display = 'block';
+  } else {
+    ref.style.display = 'none';
+  }
+
+  const grid = document.getElementById('opts');
+  grid.innerHTML = '';
+  shuffle(q.opts).forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'opt-btn';
+    btn.textContent = opt;
+    btn.onclick = () => pick(opt, btn);
+    grid.appendChild(btn);
+  });
+
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback';
+  document.getElementById('next-btn').style.display = 'none';
+
+  const card = document.getElementById('q-card');
+  card.classList.remove('animate-in');
+  void card.offsetWidth;
+  card.classList.add('animate-in');
+
+  clearInterval(G.ticker);
+  updateTimer();
+  G.ticker = setInterval(() => {
+    G.timeLeft--;
+    updateTimer();
+    if (G.timeLeft <= 0) { clearInterval(G.ticker); timeUp(); }
+  }, 1000);
+}
+
+function updateTimer() {
+  const el = document.getElementById('timer');
+  el.textContent = G.timeLeft;
+  el.className   = 'timer-box' + (G.timeLeft <= 5 ? ' urgent' : '');
+}
+
+function pick(val, btn) {
+  if (G.done) return;
+  G.done = true;
+  clearInterval(G.ticker);
+
+  const q = G.qs[G.idx];
+  const ok = (val == q.ans);
+
+  document.querySelectorAll('.opt-btn').forEach(b => {
+    b.disabled = true;
+    if (String(b.textContent) == String(q.ans)) b.classList.add('correct');
+  });
+
+  if (ok) {
+    btn.classList.add('correct');
+    const bonus = Math.floor(G.timeLeft * 1.8);
+    const pts   = 100 + bonus;
+    G.score  += pts;
+    G.correct++;
+    G.streak++;
+    G.maxStreak = Math.max(G.maxStreak, G.streak);
+    showFeedback(true, `✅ Correto! +${pts} pontos (bônus de tempo: +${bonus})`, q.exp);
+    playOk();
+  } else {
+    btn.classList.add('wrong');
+    G.wrong++;
+    G.streak = 0;
+    showFeedback(false, '❌ Resposta incorreta.', q.exp);
+    playWrong();
+  }
+
+  G.log.push({ text: q.text, ans: q.ans, userAns: val, ok });
+  document.getElementById('score').textContent = G.score;
+
+  setTimeout(() => {
+    document.getElementById('next-btn').style.display = 'inline-block';
+  }, 600);
+}
+
+function timeUp() {
+  if (G.done) return;
+  G.done = true;
+
+  const q = G.qs[G.idx];
+  G.wrong++;
+  G.streak = 0;
+
+  document.querySelectorAll('.opt-btn').forEach(b => {
+    b.disabled = true;
+    if (String(b.textContent) == String(q.ans)) b.classList.add('correct');
+  });
+
+  showFeedback(false, '⏰ Tempo esgotado!', q.exp);
+  playWrong();
+  G.log.push({ text: q.text, ans: q.ans, userAns: null, ok: false });
+
+  setTimeout(() => {
+    document.getElementById('next-btn').style.display = 'inline-block';
+  }, 600);
+}
+
+function showFeedback(ok, title, exp) {
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback show ' + (ok ? 'fb-ok' : 'fb-err');
+  document.getElementById('fb-title').textContent = title;
+  document.getElementById('fb-exp').textContent   = exp;
+}
+
+function nextQuestion() {
+  G.idx++;
+  if (G.idx >= G.qs.length) {
+    showResults();
+  } else {
+    renderQuestion();
+  }
+}
+
+function showResults() {
+  showScreen('screen-result');
+
+  const pct = G.correct / PER_GAME;
+
+  let icon, title, sub;
+  if (pct >= .875) {
+    icon = '🏆'; title = 'Mestre das Combinações!'; sub = 'Desempenho excelente — você domina o conteúdo!';
+    confetti();
+  } else if (pct >= .625) {
+    icon = '⭐'; title = 'Muito Bem!'; sub = 'Você está indo ótimo! Continue praticando.';
+  } else if (pct >= .375) {
+    icon = '📚'; title = 'Continue Estudando!'; sub = 'Revise as fórmulas e tente novamente.';
+  } else {
+    icon = '💪'; title = 'Não desista!'; sub = 'Releia a teoria e refaça o jogo. Você consegue!';
+  }
+
+  document.getElementById('r-icon').textContent  = icon;
+  document.getElementById('r-title').textContent = title;
+  document.getElementById('r-sub').textContent   = sub;
+  document.getElementById('r-pts').textContent   = G.score;
+  document.getElementById('r-ok').textContent    = G.correct;
+  document.getElementById('r-err').textContent   = G.wrong;
+  document.getElementById('r-str').textContent   = G.maxStreak;
+  document.getElementById('r-pct').textContent   =
+    `${G.correct} de ${PER_GAME} corretas (${Math.round(pct * 100)}%)`;
+
+  setTimeout(() => {
+    document.getElementById('r-bar').style.width = (pct * 100) + '%';
+  }, 80);
+
+  const list = document.getElementById('review-list');
+  list.innerHTML = '';
+  G.log.forEach(entry => {
+    const d = document.createElement('div');
+    d.className = 'review-item';
+    d.innerHTML = `
+      <span class="ri-icon">${entry.ok ? '✅' : '❌'}</span>
+      <span class="ri-q">${entry.text.slice(0,80)}${entry.text.length>80?'…':''}</span>`;
+    list.appendChild(d);
+  });
+
+  playFinish();
+}
+
+function confetti() {
+  const cv  = document.getElementById('confetti');
+  cv.width  = window.innerWidth;
+  cv.height = window.innerHeight;
+  const ctx = cv.getContext('2d');
+  const cols = ['#6366f1','#818cf8','#22c55e','#f59e0b','#ef4444','#f8fafc'];
+
+  const ps = Array.from({length:120}, () => ({
+    x:  Math.random() * cv.width,
+    y:  -20,
+    w:  Math.random() * 10 + 4,
+    h:  Math.random() * 7  + 3,
+    vx: (Math.random() - .5) * 5,
+    vy: Math.random() * 3 + 1.5,
+    r:  Math.random() * 360,
+    rs: (Math.random() - .5) * 12,
+    c:  cols[Math.floor(Math.random() * cols.length)]
+  }));
+
+  let frame = 0;
+  function draw() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ps.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.r += p.rs;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.r * Math.PI / 180);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      ctx.restore();
+    });
+    if (++frame < 160) requestAnimationFrame(draw);
+    else ctx.clearRect(0, 0, cv.width, cv.height);
+  }
+  draw();
+}
+</script>
+</body>
+</html>
