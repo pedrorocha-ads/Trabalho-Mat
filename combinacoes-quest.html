@@ -111,6 +111,76 @@
 
     .btn-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
+    /* ── HOST / APRESENTADOR ── */
+    .host-stage {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      text-align: left;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      margin: 0 auto 28px;
+      max-width: 620px;
+    }
+    .host-avatar {
+      font-size: 3.2rem;
+      flex-shrink: 0;
+      animation: float 3s ease-in-out infinite;
+      line-height: 1;
+    }
+    .host-avatar.speaking { animation: pop .45s ease-in-out infinite; }
+    .host-bubble {
+      position: relative;
+      background: var(--surface2);
+      border-radius: 14px;
+      padding: 14px 16px;
+      flex: 1;
+      min-height: 64px;
+    }
+    .host-bubble::before {
+      content: '';
+      position: absolute;
+      left: -8px; top: 18px;
+      border: 8px solid transparent;
+      border-right-color: var(--surface2);
+      border-left: 0;
+    }
+    .host-name { font-size: .72rem; color: var(--primary-light); font-weight: 800; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 4px; }
+    .host-text { font-size: .96rem; line-height: 1.5; color: var(--text); min-height: 1.4em; }
+    .host-text .cursor { color: var(--primary-light); animation: pulse .8s infinite; }
+    .host-ctrls { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .host-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .host-btn:hover { border-color: var(--primary); background: rgba(99,102,241,.12); }
+
+    /* ── SOUND TOGGLE (canto) ── */
+    .sound-toggle {
+      position: fixed;
+      top: 14px; right: 14px;
+      z-index: 50;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+    }
+    .sound-toggle:hover { background: var(--surface2); }
+    .sound-toggle:active { transform: scale(.92); }
+
     /* ════════════════════════════════════
        INSTRUCTIONS SCREEN
     ════════════════════════════════════ */
@@ -302,10 +372,24 @@
 </head>
 <body>
 
+<button class="sound-toggle" id="sound-toggle" onclick="toggleSound()" title="Ligar/desligar som">🔊</button>
+
 <div id="screen-start" class="screen active">
   <span class="logo">🧮</span>
   <h1 class="title">Combinações Quest</h1>
   <p class="subtitle">Aprenda Combinações Simples e com Repetição de forma divertida!</p>
+
+  <div class="host-stage">
+    <div class="host-avatar" id="host-avatar">🎓</div>
+    <div class="host-bubble">
+      <div class="host-name">Professor Combinato</div>
+      <div class="host-text" id="host-text">Olá! Toque em <strong>“▶ Ouvir apresentação”</strong> e eu te explico tudo sobre o jogo. 😉</div>
+      <div class="host-ctrls">
+        <button class="host-btn" id="host-play" onclick="toggleNarration()">▶ Ouvir apresentação</button>
+        <button class="host-btn" onclick="skipNarration()">⏭ Pular</button>
+      </div>
+    </div>
+  </div>
 
   <div class="stats-row">
     <div class="stat-item"><div class="num">15</div><div class="lbl">Questões no banco</div></div>
@@ -579,11 +663,181 @@ function beep(freqs, dur = .4, type = 'sine') {
     });
   } catch(_) {}
 }
-function playOk()       { beep([[440,.0],[660,.12],[880,.24]], .35); }
-function playWrong()    { beep([[280,.0],[200,.2]], .4, 'sawtooth'); }
-function playFinish()   { beep([[523,.0],[659,.18],[784,.36],[1047,.54]], .3); }
+function playOk()       { if(soundOn) beep([[440,.0],[660,.12],[880,.24]], .35); }
+function playWrong()    { if(soundOn) beep([[280,.0],[200,.2]], .4, 'sawtooth'); }
+function playFinish()   { if(soundOn) beep([[523,.0],[659,.18],[784,.36],[1047,.54]], .3); }
+
+/* ════════════════════════════════════
+   SOM GLOBAL
+════════════════════════════════════ */
+let soundOn = true;
+
+function toggleSound() {
+  soundOn = !soundOn;
+  document.getElementById('sound-toggle').textContent = soundOn ? '🔊' : '🔇';
+  if (!soundOn) { stopMusic(); stopNarration(); }
+  else if (document.getElementById('screen-game').classList.contains('active')) startMusic();
+}
+
+/* ── MÚSICA DE FUNDO (pad ambiente baixinho, gerado) ── */
+let music = null;
+function startMusic() {
+  if (!soundOn || music) return;
+  try {
+    const ctx = getCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    const master = ctx.createGain();
+    master.gain.value = 0.05;            // bem baixinho
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 900;
+    master.connect(lp); lp.connect(ctx.destination);
+
+    // pad sustentado (Lá menor): 3 osciladores suaves
+    const pad = [220, 261.63, 329.63].map(f => {
+      const o = ctx.createOscillator();
+      o.type = 'sine'; o.frequency.value = f;
+      o.connect(master); o.start();
+      return o;
+    });
+
+    // arpejo suave em loop
+    const notes = [440, 523.25, 659.25, 523.25];
+    let i = 0;
+    const arp = setInterval(() => {
+      if (!soundOn) return;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'triangle';
+      o.frequency.value = notes[i++ % notes.length];
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.03, ctx.currentTime + 0.08);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.7);
+      o.connect(g); g.connect(lp);
+      o.start(); o.stop(ctx.currentTime + 0.75);
+    }, 650);
+
+    music = { pad, arp, master };
+  } catch(_) {}
+}
+function stopMusic() {
+  if (!music) return;
+  try {
+    clearInterval(music.arp);
+    music.pad.forEach(o => { try { o.stop(); } catch(_){} });
+    music.master.disconnect();
+  } catch(_) {}
+  music = null;
+}
+
+/* ── TICK DO CRONÔMETRO (acelera quando o tempo cai) ── */
+let tickTimer = null;
+function tickSound(fast) {
+  if (!soundOn) return;
+  try {
+    const ctx = getCtx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'square';
+    o.frequency.value = fast ? 1400 : 900;
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.06);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.07);
+  } catch(_) {}
+}
+function startTicking() {
+  stopTicking();
+  const loop = () => {
+    if (G.done) return;
+    const t = G.timeLeft;
+    // intervalo encurta conforme o tempo diminui → mais rápido
+    const delay = t > 10 ? 1000 : t > 5 ? 500 : 250;
+    tickSound(t <= 5);
+    tickTimer = setTimeout(loop, delay);
+  };
+  tickTimer = setTimeout(loop, 1000);
+}
+function stopTicking() {
+  if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; }
+}
+
+/* ── NARRAÇÃO DO APRESENTADOR (voz + balão) ── */
+const HOST_SCRIPT = [
+  'Olá! Eu sou o Professor Combinato, seu apresentador nesta jornada.',
+  'Aqui você vai dominar as Combinações Simples e as Combinações com Repetição.',
+  'O jogo tem 8 questões. Em cada uma, escolha a resposta certa entre 4 opções.',
+  'Você tem 30 segundos por questão. Quanto mais rápido acertar, mais pontos de bônus ganha!',
+  'Atenção: conforme o tempo diminui, o cronômetro acelera. Mantenha a calma!',
+  'A lógica é simples. Se a ordem não importa, é Combinação. Se pode repetir elementos, é Combinação com Repetição.',
+  'As fórmulas ficam visíveis o tempo todo na tela. Respire fundo e boa sorte!'
+];
+let narrating = false;
+
+function typeBubble(str) {
+  const el = document.getElementById('host-text');
+  el.innerHTML = '';
+  let i = 0;
+  const step = () => {
+    if (!narrating) return;
+    el.innerHTML = str.slice(0, i) + '<span class="cursor">▌</span>';
+    if (i++ < str.length) setTimeout(step, 28);
+    else el.innerHTML = str;
+  };
+  step();
+}
+
+function toggleNarration() {
+  if (narrating) { stopNarration(); return; }
+  startNarration();
+}
+
+function startNarration() {
+  narrating = true;
+  document.getElementById('host-avatar').classList.add('speaking');
+  document.getElementById('host-play').textContent = '⏸ Parar';
+
+  const supported = 'speechSynthesis' in window;
+  let idx = 0;
+
+  const next = () => {
+    if (!narrating || idx >= HOST_SCRIPT.length) { stopNarration(); return; }
+    const line = HOST_SCRIPT[idx++];
+    typeBubble(line);
+    if (supported && soundOn) {
+      const u = new SpeechSynthesisUtterance(line);
+      u.lang = 'pt-BR'; u.rate = 1.02; u.pitch = 1.05;
+      const v = speechSynthesis.getVoices().find(x => x.lang && x.lang.startsWith('pt'));
+      if (v) u.voice = v;
+      u.onend = next;
+      u.onerror = () => setTimeout(next, 400);
+      speechSynthesis.speak(u);
+    } else {
+      // sem voz: avança por tempo de leitura
+      setTimeout(next, Math.max(2200, line.length * 55));
+    }
+  };
+  next();
+}
+
+function stopNarration() {
+  narrating = false;
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  const av = document.getElementById('host-avatar');
+  if (av) av.classList.remove('speaking');
+  const pb = document.getElementById('host-play');
+  if (pb) pb.textContent = '▶ Ouvir apresentação';
+}
+
+function skipNarration() {
+  stopNarration();
+  document.getElementById('host-text').innerHTML =
+    'Tudo pronto! Toque em <strong>“🚀 Jogar!”</strong> quando quiser começar. Boa sorte! 🍀';
+}
 
 function startGame() {
+  stopNarration();
+  startMusic();
   G = {
     qs: shuffle(BANK).slice(0, PER_GAME),
     idx: 0,
@@ -660,10 +914,11 @@ function renderQuestion() {
 
   clearInterval(G.ticker);
   updateTimer();
+  startTicking();
   G.ticker = setInterval(() => {
     G.timeLeft--;
     updateTimer();
-    if (G.timeLeft <= 0) { clearInterval(G.ticker); timeUp(); }
+    if (G.timeLeft <= 0) { clearInterval(G.ticker); stopTicking(); timeUp(); }
   }, 1000);
 }
 
@@ -677,6 +932,7 @@ function pick(val, btn) {
   if (G.done) return;
   G.done = true;
   clearInterval(G.ticker);
+  stopTicking();
 
   const q = G.qs[G.idx];
   const ok = (val == q.ans);
@@ -751,6 +1007,8 @@ function nextQuestion() {
 }
 
 function showResults() {
+  stopTicking();
+  stopMusic();
   showScreen('screen-result');
 
   const pct = G.correct / PER_GAME;
