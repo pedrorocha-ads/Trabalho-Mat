@@ -1,2 +1,3 @@
-# Trabalho-Mat git push -u originADME.md
-# Trabalho-Mat git push -u originADME.md
+# Trabalho-Mat
+
+Combinações Quest — quiz de Combinações Simples e com Repetição.
